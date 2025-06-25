@@ -1,4 +1,4 @@
-# Git-Ingest Repository Analyzer
+# Analyze Git Projects
 
 A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Model Context Protocol) server and AI-powered analysis. This tool provides comprehensive insights into repository structure, technology stack, code quality, and complexity.
 
@@ -24,7 +24,7 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 1. **Clone the repository:**
    ```bash
    git clone <your-repo-url>
-   cd portfolio-search
+   cd analyze-git-projects
    ```
 
 2. **Install dependencies:**
@@ -46,7 +46,7 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 ## 📁 Project Structure
 
 ```
-gitingest_analyzer/
+analyze_git_projects/
 ├── __init__.py          # Package initialization
 ├── analyzer.py          # Core GitIngestAnalyzer class
 ├── models.py           # Pydantic data models
@@ -91,22 +91,22 @@ Full-featured CLI with:
 ### 1. Quick Start (Test Mode)
 Run the built-in test with sample repository:
 ```bash
-python -m gitingest_analyzer.main
+python -m analyze_git_projects.main
 ```
 
 ### 2. Command Line Interface
 Analyze specific repositories:
 ```bash
 # Single repository
-python -m gitingest_analyzer.cli https://github.com/user/repo
+python -m analyze_git_projects.cli https://github.com/user/repo
 
 # Multiple repositories
-python -m gitingest_analyzer.cli \
+python -m analyze_git_projects.cli \
   https://github.com/user/repo1 \
   https://github.com/user/repo2
 
 # With custom options
-python -m gitingest_analyzer.cli \
+python -m analyze_git_projects.cli \
   --api-key your_key \
   --output-dir ./results \
   --verbose \
@@ -117,7 +117,7 @@ python -m gitingest_analyzer.cli \
 Use as a library in your own code:
 ```python
 import asyncio
-from gitingest_analyzer import GitIngestAnalyzer, ResultsDisplay
+from analyze_git_projects import GitIngestAnalyzer, ResultsDisplay
 
 async def analyze_repo():
     # Initialize analyzer
@@ -157,7 +157,7 @@ GIT_INGEST_SERVER_ARGS=--from,git+https://github.com/adhikasp/mcp-git-ingest,mcp
 
 ### CLI Options
 ```bash
-python -m gitingest_analyzer.cli --help
+python -m analyze_git_projects.cli --help
 
 Options:
   --api-key TEXT        OpenRouter API key
@@ -247,14 +247,14 @@ Structured data export with:
 3. **Module Import Errors**
    ```bash
    # Run from project root directory
-   cd /path/to/portfolio-search
-   python -m gitingest_analyzer.main
+   cd /path/to/analyze-git-projects
+   python -m analyze_git_projects.main
    ```
 
 ### Debug Mode
 Enable verbose output for detailed error information:
 ```bash
-python -m gitingest_analyzer.cli --verbose <repo_url>
+python -m analyze_git_projects.cli --verbose <repo_url>
 ```
 
 ## 🤝 Contributing
