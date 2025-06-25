@@ -1,0 +1,4 @@
+pydantic-ai-slim[mcp]
+python-dotenv
+rich
+configparser
