@@ -1,4 +1,4 @@
-pydantic-ai-slim[mcp]
-python-dotenv
-rich
-configparser
+pydantic==2.11.7
+pydantic_ai==0.3.3
+python-dotenv==1.1.1
+rich==14.0.0
