@@ -23,7 +23,7 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/seszele64/analyze-git-projects.git
    cd analyze-git-projects
    ```
 
