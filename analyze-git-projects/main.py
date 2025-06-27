@@ -32,7 +32,6 @@ async def main():
     # Test repositories
     test_repos = [
         # "https://github.com/octocat/Hello-World",
-        "https://github.com/seszele64/trivia-quiz-builder",
     ]
     
     results_list: List[AnalysisResults] = []
