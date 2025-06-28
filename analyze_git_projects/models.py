@@ -146,3 +146,15 @@ class CodeQualityMetrics(BaseModel):
     test_coverage: Optional[str] = Field(None, description="Test coverage level (High/Medium/Low)")
     documentation_quality: Optional[str] = Field(None, description="Documentation quality (Excellent/Good/Fair/Poor)")
     code_organization: Optional[str] = Field(None, description="Code organization quality")
+
+
+class StructuredAnalysis(BaseModel):
+    """Model for structured AI analysis results using Pydantic AI result_type"""
+    technology_stack: TechnologyStack = Field(default_factory=TechnologyStack, description="Technology stack information")
+    project_purpose: str = Field(default="", description="Brief description of what the project does")
+    architecture_type: str = Field(default="", description="Type of architecture (e.g., MVC, Pipeline, Microservices)")
+    key_features: List[str] = Field(default_factory=list, description="Main features of the project")
+    dependencies: List[str] = Field(default_factory=list, description="External dependencies and services")
+    code_quality: CodeQualityMetrics = Field(default_factory=CodeQualityMetrics, description="Code quality metrics")
+    project_complexity: ProjectComplexity = Field(default_factory=lambda: ProjectComplexity(level="Unknown"), description="Project complexity assessment")
+    development_practices: List[str] = Field(default_factory=list, description="Development practices observed")
