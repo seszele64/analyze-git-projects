@@ -153,7 +153,7 @@ class GitIngestAnalyzer:
                         system_prompt=self._get_structured_analysis_prompt()
                     )
                     
-                    analysis_prompt = self._build_structured_analysis_prompt_v2(repo_url, results)
+                    analysis_prompt = self._build_structured_analysis_prompt(repo_url, results)
                     
                     analysis_result = await analysis_agent.run(analysis_prompt)
                     
@@ -195,7 +195,7 @@ class GitIngestAnalyzer:
         Be thorough but concise in your analysis.
         """
     
-    def _build_structured_analysis_prompt_v2(self, repo_url: str, results: AnalysisResults) -> str:
+    def _build_structured_analysis_prompt(self, repo_url: str, results: AnalysisResults) -> str:
         """Build structured analysis prompt for Pydantic AI result_type"""
         return f"""
         Analyze the GitHub repository at {repo_url} based on the following information and provide a comprehensive structured analysis:
