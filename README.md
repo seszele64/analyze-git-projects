@@ -96,22 +96,113 @@ python -m analyze_git_projects.main
 ```
 
 ### 2. Command Line Interface
-Analyze specific repositories:
+
+#### Basic Usage
 ```bash
-# Single repository
-python -m analyze_git_projects.cli https://github.com/user/repo
+# Analyze a single repository
+python -m analyze_git_projects.cli https://github.com/microsoft/vscode
 
-# Multiple repositories
+# Analyze multiple repositories at once
 python -m analyze_git_projects.cli \
-  https://github.com/user/repo1 \
-  https://github.com/user/repo2
+  https://github.com/microsoft/vscode \
+  https://github.com/facebook/react \
+  https://github.com/tensorflow/tensorflow
+```
 
-# With custom options
+#### Using API Key
+```bash
+# Provide API key directly (overrides environment variable)
 python -m analyze_git_projects.cli \
-  --api-key your_key \
-  --output-dir ./results \
+  --api-key sk-or-v1-your-openrouter-key \
+  https://github.com/openai/whisper
+
+# Using environment variable (recommended)
+export OPENROUTER_API_KEY="sk-or-v1-your-openrouter-key"
+python -m analyze_git_projects.cli https://github.com/openai/whisper
+```
+
+#### Custom Output Directory
+```bash
+# Save results to specific directory
+python -m analyze_git_projects.cli \
+  --output-dir ./analysis-results \
+  https://github.com/vercel/next.js
+
+# Create timestamped results directory
+mkdir "analysis-$(date +%Y%m%d-%H%M%S)"
+python -m analyze_git_projects.cli \
+  --output-dir "./analysis-$(date +%Y%m%d-%H%M%S)" \
+  https://github.com/docker/docker
+```
+
+#### Connection Testing
+```bash
+# Test MCP server connection only (no analysis)
+python -m analyze_git_projects.cli --test-connection
+
+# Test with specific API key
+python -m analyze_git_projects.cli \
+  --api-key sk-or-v1-your-key \
+  --test-connection
+```
+
+#### Verbose Output
+```bash
+# Enable detailed error reporting and debug info
+python -m analyze_git_projects.cli \
   --verbose \
-  https://github.com/user/repo
+  https://github.com/pytorch/pytorch
+
+# Combine with other options
+python -m analyze_git_projects.cli \
+  --verbose \
+  --output-dir ./detailed-analysis \
+  --api-key sk-or-v1-your-key \
+  https://github.com/kubernetes/kubernetes
+```
+
+#### Advanced Examples
+
+**Batch Analysis with Custom Settings:**
+```bash
+# Analyze multiple popular Python projects
+python -m analyze_git_projects.cli \
+  --output-dir ./python-projects \
+  --verbose \
+  https://github.com/psf/requests \
+  https://github.com/pallets/flask \
+  https://github.com/django/django \
+  https://github.com/fastapi/fastapi
+```
+
+**CI/CD Pipeline Usage:**
+```bash
+# For automated analysis in scripts
+python -m analyze_git_projects.cli \
+  --api-key "$OPENROUTER_API_KEY" \
+  --output-dir "$CI_PROJECT_DIR/analysis" \
+  "$REPOSITORY_URL"
+```
+
+**Portfolio Analysis:**
+```bash
+# Analyze your own repositories
+python -m analyze_git_projects.cli \
+  --output-dir ./my-portfolio \
+  https://github.com/yourusername/project1 \
+  https://github.com/yourusername/project2 \
+  https://github.com/yourusername/project3
+```
+
+**Research & Learning:**
+```bash
+# Compare similar projects
+python -m analyze_git_projects.cli \
+  --output-dir ./web-frameworks \
+  --verbose \
+  https://github.com/expressjs/express \
+  https://github.com/fastify/fastify \
+  https://github.com/koajs/koa
 ```
 
 ### 3. Python API
@@ -156,16 +247,52 @@ GIT_INGEST_SERVER_COMMAND=uvx
 GIT_INGEST_SERVER_ARGS=--from,git+https://github.com/adhikasp/mcp-git-ingest,mcp-git-ingest
 ```
 
-### CLI Options
+### 📖 CLI Arguments Reference
+
+```bash
+python -m analyze_git_projects.cli [OPTIONS] REPO_URLS...
+```
+
+#### Positional Arguments
+| Argument | Description | Example |
+|----------|-------------|---------|
+| `repo_urls` | One or more GitHub repository URLs to analyze | `https://github.com/user/repo` |
+
+#### Options
+| Flag | Long Form | Type | Default | Description |
+|------|-----------|------|---------|-------------|
+| `-h` | `--help` | - | - | Show help message and exit |
+| | `--api-key` | `TEXT` | `$OPENROUTER_API_KEY` | OpenRouter API key (overrides env var) |
+| | `--output-dir` | `TEXT` | `.` | Directory to save analysis results |
+| | `--test-connection` | `FLAG` | `False` | Test MCP server connection and exit |
+| `-v` | `--verbose` | `FLAG` | `False` | Enable verbose output and debug info |
+
+#### Complete Usage Examples
+
+**Show Help:**
 ```bash
 python -m analyze_git_projects.cli --help
-
-Options:
-  --api-key TEXT        OpenRouter API key
-  --output-dir TEXT     Output directory for results (default: .)
-  --test-connection     Test MCP server connection only
-  --verbose, -v         Enable verbose output
+python -m analyze_git_projects.cli -h
 ```
+
+**All Arguments Combined:**
+```bash
+python -m analyze_git_projects.cli \
+  --api-key "sk-or-v1-your-openrouter-api-key" \
+  --output-dir "/path/to/results" \
+  --verbose \
+  https://github.com/owner/repo1 \
+  https://github.com/owner/repo2
+```
+
+**Short Flags:**
+```bash
+python -m analyze_git_projects.cli -v https://github.com/user/repo
+```
+
+**Exit Codes:**
+- `0`: Success
+- `1`: Error (connection failed, analysis failed, user interruption)
 
 ## 🤖 AI Analysis Architecture
 
