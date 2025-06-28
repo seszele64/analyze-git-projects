@@ -6,8 +6,8 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 
 - **Automated Repository Analysis**: Analyze any GitHub repository URL
 - **MCP Server Integration**: Uses git-ingest MCP server for repository data extraction
-- **AI-Powered Insights**: Leverages OpenRouter for intelligent analysis
-- **Structured Data Models**: Type-safe Pydantic models for analysis results
+- **AI-Powered Insights**: Leverages OpenRouter with structured output parsing
+- **Structured Data Models**: Type-safe Pydantic models for analysis results with JSON schema validation
 - **Rich Console Output**: Beautiful formatted output with Rich library
 - **JSON Export**: Save analysis results for later use
 - **CLI Interface**: Command-line tool for batch processing
@@ -48,8 +48,8 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 ```
 analyze_git_projects/
 ├── __init__.py          # Package initialization
-├── analyzer.py          # Core GitIngestAnalyzer class
-├── models.py           # Pydantic data models
+├── analyzer.py          # Core GitIngestAnalyzer class with structured parsing
+├── models.py           # Pydantic data models including StructuredAnalysis
 ├── display.py          # Results formatting and display
 ├── main.py             # Main test runner
 └── cli.py              # Command-line interface
@@ -60,8 +60,8 @@ analyze_git_projects/
 #### 🔍 `analyzer.py` - GitIngestAnalyzer
 The main analyzer class that:
 - Initializes MCP server connection
-- Configures AI agent with OpenRouter
-- Orchestrates repository analysis workflow
+- Configures AI agent with OpenRouter and structured output (result_type)
+- Orchestrates repository analysis workflow using Pydantic AI's JSON schema validation
 - Handles error recovery and logging
 
 #### 📊 `models.py` - Data Models
@@ -71,6 +71,7 @@ Pydantic models for type-safe data handling:
 - `TechnologyStack`: Languages, frameworks, tools
 - `ProjectComplexity`: Complexity assessment with scoring
 - `CodeQualityMetrics`: Quality indicators and scores
+- `StructuredAnalysis`: **New model for AI result parsing with JSON schema enforcement**
 
 #### 🎨 `display.py` - ResultsDisplay
 Handles output formatting and file operations:
@@ -128,7 +129,7 @@ async def analyze_repo():
         print("MCP server connection failed")
         return
     
-    # Analyze repository
+    # Analyze repository with structured parsing
     results = await analyzer.analyze_repository(
         "https://github.com/user/repo"
     )
@@ -166,6 +167,33 @@ Options:
   --verbose, -v         Enable verbose output
 ```
 
+## 🤖 AI Analysis Architecture
+
+### Structured Output Parsing
+The analyzer uses **Pydantic AI's structured output capabilities** instead of regex parsing:
+
+```python
+# Structured analysis with JSON schema validation
+analysis_agent = Agent(
+    model=openrouter_model,
+    mcp_servers=[git_ingest_server],
+    result_type=StructuredAnalysis,  # Enforces JSON schema
+    system_prompt=structured_analysis_prompt
+)
+
+# Direct assignment from validated response
+structured_analysis = analysis_result.data
+results.technology_stack = structured_analysis.technology_stack
+results.project_complexity = structured_analysis.project_complexity
+# ... other fields
+```
+
+### Benefits of Structured Parsing
+- **Type Safety**: Automatic validation against Pydantic models
+- **Reliability**: No regex parsing errors or missed fields
+- **Consistency**: OpenRouter's structured output ensures schema compliance
+- **Maintainability**: Changes to data structure only require model updates
+
 ## 📈 Analysis Output
 
 The analyzer provides comprehensive insights including:
@@ -175,6 +203,8 @@ The analyzer provides comprehensive insights including:
 - Frameworks and libraries used
 - Development tools and build systems
 - Database technologies
+- Testing frameworks
+- Deployment tools
 
 ### 🏗️ Architecture Assessment
 - Project structure patterns
@@ -187,10 +217,12 @@ The analyzer provides comprehensive insights including:
 - Testing practices
 - CI/CD implementation
 - Code style adherence
+- Type checking usage
+- Linting configuration
 
 ### 📊 Complexity Scoring
 - Beginner/Intermediate/Advanced classification
-- Complexity factors identification
+- Complexity factors identification (1-10 scale)
 - Learning curve assessment
 - Technical debt indicators
 
@@ -201,10 +233,10 @@ Rich-formatted panels with color coding:
 - 🔧 MCP Tools Used
 - 📁 Repository Structure
 - 📄 Important Files
-- 🤖 AI Analysis
+- 🤖 Structured AI Analysis
 
 ### JSON Export
-Structured data export with:
+Structured data export with validated schema:
 ```json
 {
   "repo_url": "https://github.com/user/repo",
@@ -214,9 +246,26 @@ Structured data export with:
     "url": "https://github.com/user/repo"
   },
   "tools_used": ["git_directory_structure", "git_read_important_files"],
-  "structure": "...",
-  "files": {...},
-  "analysis": "...",
+  "technology_stack": {
+    "primary_language": "Python",
+    "languages": ["Python", "JavaScript"],
+    "frameworks": ["FastAPI", "React"],
+    "tools": ["Docker", "pytest"],
+    "databases": ["PostgreSQL"],
+    "deployment_tools": ["Docker", "GitHub Actions"],
+    "testing_frameworks": ["pytest", "Jest"]
+  },
+  "project_complexity": {
+    "level": "Intermediate",
+    "score": 6,
+    "factors": ["Multiple services", "Database integration"]
+  },
+  "code_quality": {
+    "has_tests": true,
+    "has_documentation": true,
+    "has_ci_cd": true,
+    "test_coverage": "High"
+  },
   "is_complete": true,
   "has_error": false
 }
@@ -244,7 +293,16 @@ Structured data export with:
    # Should start with 'sk-or-v1-'
    ```
 
-3. **Module Import Errors**
+3. **Structured Output Parsing Errors**
+   ```bash
+   # Check if OpenRouter supports structured outputs for your model
+   # Gemini 2.0 Flash should support JSON schema validation
+   
+   # Enable verbose mode to see parsing details
+   python -m analyze_git_projects.cli --verbose <repo_url>
+   ```
+
+4. **Module Import Errors**
    ```bash
    # Run from project root directory
    cd /path/to/analyze-git-projects
@@ -272,9 +330,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🙏 Acknowledgments
 
 - [git-ingest](https://github.com/adhikasp/mcp-git-ingest) - MCP server for repository analysis
-- [pydantic-ai](https://github.com/pydantic/pydantic-ai) - AI agent framework
+- [pydantic-ai](https://github.com/pydantic/pydantic-ai) - AI agent framework with structured outputs
 - [Rich](https://github.com/Textualize/rich) - Beautiful terminal output
-- [OpenRouter](https://openrouter.ai/) - AI model provider
+- [OpenRouter](https://openrouter.ai/) - AI model provider with JSON schema support
 
 ## 📞 Support
 
