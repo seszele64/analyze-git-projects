@@ -2,9 +2,9 @@ import asyncio
 from typing import List
 from rich.console import Console
 
-from .analyzer import GitIngestAnalyzer
+from .github_mcp_analyzer import GitHubMCAnalyzer
 from .display import ResultsDisplay
-from .models import AnalysisResults
+from .models.simple_project_schema import SimpleProject
 
 console = Console()
 
@@ -15,7 +15,7 @@ async def main():
     
     # Initialize analyzer
     try:
-        analyzer = GitIngestAnalyzer()
+        analyzer = GitHubMCAnalyzer()
     except Exception as e:
         console.print(f"[red]Failed to initialize analyzer: {str(e)}[/red]")
         return
@@ -34,34 +34,42 @@ async def main():
         # "https://github.com/octocat/Hello-World",
     ]
     
-    results_list: List[AnalysisResults] = []
+    projects_list: List[SimpleProject] = []
     
     for repo_url in test_repos:
         console.print(f"\n🔍 Analyzing repository: [bold]{repo_url}[/bold]")
         
         try:
-            results = await analyzer.analyze_repository(repo_url)
-            results_list.append(results)
+            # Use the analyzer to get actual SimpleProject data
+            project = await analyzer.analyze_repository(repo_url)
+            projects_list.append(project)
             
             # Display results
-            ResultsDisplay.display_results(results)
+            ResultsDisplay.display_results(project)
             
             # Save results to file
-            output_file = ResultsDisplay.save_results_to_file(results)
+            output_file = ResultsDisplay.save_results_to_file(project)
             
         except Exception as e:
             console.print(f"[red]❌ Failed to analyze {repo_url}: {str(e)}[/red]")
             import traceback
             console.print(f"[red]{traceback.format_exc()}[/red]")
             
-            # Create error result
-            error_result = AnalysisResults(repo_url=repo_url, error=str(e))
-            results_list.append(error_result)
+            # Create error project
+            error_project = SimpleProject(
+                name=repo_url.split('/')[-1] if repo_url else "Unknown",
+                url=repo_url,
+                description=f"Analysis failed: {str(e)}",
+                technologies=[],
+                key_features=[],
+                highlights=None
+            )
+            projects_list.append(error_project)
     
     # Display summary
-    if len(results_list) > 1:
+    if len(projects_list) > 1:
         console.print("\n" + "="*50)
-        ResultsDisplay.display_summary(results_list)
+        ResultsDisplay.display_summary(projects_list)
 
 
 if __name__ == "__main__":
