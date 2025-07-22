@@ -1,13 +1,13 @@
 # Analyze Git Projects
 
-A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Model Context Protocol) server and AI-powered analysis. This tool provides comprehensive insights into repository structure, technology stack, code quality, and complexity.
+A powerful tool for analyzing GitHub repositories using the official GitHub MCP (Model Context Protocol) server and AI-powered analysis. This tool provides comprehensive insights into repository structure, technology stack, and project characteristics using a clean, simple data model.
 
 ## 🚀 Features
 
 - **Automated Repository Analysis**: Analyze any GitHub repository URL
 - **MCP Server Integration**: Uses git-ingest MCP server for repository data extraction
 - **AI-Powered Insights**: Leverages OpenRouter with structured output parsing
-- **Structured Data Models**: Type-safe Pydantic models for analysis results with JSON schema validation
+- **Simple Data Model**: Clean, focused Pydantic model for analysis results
 - **Rich Console Output**: Beautiful formatted output with Rich library
 - **JSON Export**: Save analysis results for later use
 - **CLI Interface**: Command-line tool for batch processing
@@ -16,8 +16,9 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 ## 📋 Requirements
 
 - Python 3.8+
-- `uvx` (for running git-ingest MCP server)
+- Docker (for running GitHub MCP server)
 - OpenRouter API key (for AI analysis)
+- GitHub Personal Access Token (for repository access)
 
 ## 🛠️ Installation
 
@@ -32,15 +33,21 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
    pip install -r requirements.txt
    ```
 
-3. **Install uvx (if not already installed):**
+3. **Install Docker (if not already installed):**
    ```bash
-   pip install uvx
+   # On Ubuntu/Debian
+   sudo apt-get update
+   sudo apt-get install docker.io
+   
+   # On macOS
+   brew install docker
    ```
 
 4. **Set up environment variables:**
    ```bash
    # Create .env file
    echo "OPENROUTER_API_KEY=your_api_key_here" > .env
+   echo "GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token_here" >> .env
    ```
 
 ## 📁 Project Structure
@@ -48,11 +55,14 @@ A powerful tool for analyzing GitHub repositories using the git-ingest MCP (Mode
 ```
 analyze_git_projects/
 ├── __init__.py          # Package initialization
-├── analyzer.py          # Core GitIngestAnalyzer class with structured parsing
-├── models.py           # Pydantic data models including StructuredAnalysis
+├── models/             # Pydantic data models
+│   ├── __init__.py
+│   ├── simple_project_schema.py  # SimpleProject model
+│   └── other_models.py # Additional models
 ├── display.py          # Results formatting and display
 ├── main.py             # Main test runner
-└── cli.py              # Command-line interface
+├── cli.py              # Command-line interface
+└── github_mcp_analyzer.py  # GitHub MCP integration
 ```
 
 ### Core Components
@@ -60,25 +70,25 @@ analyze_git_projects/
 #### 🔍 `analyzer.py` - GitIngestAnalyzer
 The main analyzer class that:
 - Initializes MCP server connection
-- Configures AI agent with OpenRouter and structured output (result_type)
-- Orchestrates repository analysis workflow using Pydantic AI's JSON schema validation
+- Configures AI agent with OpenRouter and structured output
+- Orchestrates repository analysis workflow
 - Handles error recovery and logging
 
-#### 📊 `models.py` - Data Models
-Pydantic models for type-safe data handling:
-- `AnalysisResults`: Main container for analysis output
-- `RepositoryInfo`: Repository metadata (name, owner, URL)
-- `TechnologyStack`: Languages, frameworks, tools
-- `ProjectComplexity`: Complexity assessment with scoring
-- `CodeQualityMetrics`: Quality indicators and scores
-- `StructuredAnalysis`: **New model for AI result parsing with JSON schema enforcement**
+#### 📊 `simple_project_schema.py` - SimpleProject Model
+Clean, focused Pydantic model for repository analysis:
+- `name`: Project name
+- `url`: Repository URL (optional)
+- `description`: Brief project description
+- `technologies`: List of key technologies used
+- `key_features`: Notable features and capabilities
+- `highlights`: Achievements, usage metrics, or outcomes (optional)
 
 #### 🎨 `display.py` - ResultsDisplay
 Handles output formatting and file operations:
 - Rich console formatting with panels and colors
 - JSON export functionality
 - Analysis summaries for multiple repositories
-- Content truncation for readability
+- Clean, focused display of SimpleProject data
 
 #### 🖥️ `cli.py` - Command Line Interface
 Full-featured CLI with:
@@ -175,15 +185,6 @@ python -m analyze_git_projects.cli \
   https://github.com/fastapi/fastapi
 ```
 
-**CI/CD Pipeline Usage:**
-```bash
-# For automated analysis in scripts
-python -m analyze_git_projects.cli \
-  --api-key "$OPENROUTER_API_KEY" \
-  --output-dir "$CI_PROJECT_DIR/analysis" \
-  "$REPOSITORY_URL"
-```
-
 **Portfolio Analysis:**
 ```bash
 # Analyze your own repositories
@@ -194,45 +195,45 @@ python -m analyze_git_projects.cli \
   https://github.com/yourusername/project3
 ```
 
-**Research & Learning:**
-```bash
-# Compare similar projects
-python -m analyze_git_projects.cli \
-  --output-dir ./web-frameworks \
-  --verbose \
-  https://github.com/expressjs/express \
-  https://github.com/fastify/fastify \
-  https://github.com/koajs/koa
-```
-
 ### 3. Python API
 Use as a library in your own code:
 ```python
 import asyncio
-from analyze_git_projects import GitIngestAnalyzer, ResultsDisplay
+from analyze_git_projects import GitHubMCAnalyzer, ResultsDisplay
 
 async def analyze_repo():
     # Initialize analyzer
-    analyzer = GitIngestAnalyzer(openrouter_api_key="your_key")
+    analyzer = GitHubMCAnalyzer(openrouter_api_key="your_key")
     
     # Test connection
     if not await analyzer.test_connection():
         print("MCP server connection failed")
         return
     
-    # Analyze repository with structured parsing
-    results = await analyzer.analyze_repository(
+    # Analyze repository
+    project = await analyzer.analyze_repository(
         "https://github.com/user/repo"
     )
     
     # Display results
-    ResultsDisplay.display_results(results)
+    ResultsDisplay.display_results(project)
     
     # Save to file
-    ResultsDisplay.save_results_to_file(results)
+    ResultsDisplay.save_results_to_file(project)
 
 # Run analysis
 asyncio.run(analyze_repo())
+```
+
+## 🧪 Testing
+
+Run the comprehensive test suite:
+```bash
+# Run all tests
+python -m pytest tests/test_simple_project.py -v
+
+# Run with coverage
+python -m pytest tests/test_simple_project.py --cov=analyze_git_projects
 ```
 
 ## 🔧 Configuration
@@ -267,136 +268,32 @@ python -m analyze_git_projects.cli [OPTIONS] REPO_URLS...
 | | `--test-connection` | `FLAG` | `False` | Test MCP server connection and exit |
 | `-v` | `--verbose` | `FLAG` | `False` | Enable verbose output and debug info |
 
-#### Complete Usage Examples
-
-**Show Help:**
-```bash
-python -m analyze_git_projects.cli --help
-python -m analyze_git_projects.cli -h
-```
-
-**All Arguments Combined:**
-```bash
-python -m analyze_git_projects.cli \
-  --api-key "sk-or-v1-your-openrouter-api-key" \
-  --output-dir "/path/to/results" \
-  --verbose \
-  https://github.com/owner/repo1 \
-  https://github.com/owner/repo2
-```
-
-**Short Flags:**
-```bash
-python -m analyze_git_projects.cli -v https://github.com/user/repo
-```
-
-**Exit Codes:**
-- `0`: Success
-- `1`: Error (connection failed, analysis failed, user interruption)
-
-## 🤖 AI Analysis Architecture
-
-### Structured Output Parsing
-The analyzer uses **Pydantic AI's structured output capabilities** instead of regex parsing:
-
-```python
-# Structured analysis with JSON schema validation
-analysis_agent = Agent(
-    model=openrouter_model,
-    mcp_servers=[git_ingest_server],
-    result_type=StructuredAnalysis,  # Enforces JSON schema
-    system_prompt=structured_analysis_prompt
-)
-
-# Direct assignment from validated response
-structured_analysis = analysis_result.data
-results.technology_stack = structured_analysis.technology_stack
-results.project_complexity = structured_analysis.project_complexity
-# ... other fields
-```
-
-### Benefits of Structured Parsing
-- **Type Safety**: Automatic validation against Pydantic models
-- **Reliability**: No regex parsing errors or missed fields
-- **Consistency**: OpenRouter's structured output ensures schema compliance
-- **Maintainability**: Changes to data structure only require model updates
-
 ## 📈 Analysis Output
 
-The analyzer provides comprehensive insights including:
+The analyzer provides focused insights using the SimpleProject model:
 
-### 🔬 Technology Stack Analysis
-- Programming languages detected
-- Frameworks and libraries used
-- Development tools and build systems
-- Database technologies
-- Testing frameworks
-- Deployment tools
-
-### 🏗️ Architecture Assessment
-- Project structure patterns
-- Code organization principles
-- Design patterns usage
-- Modular architecture analysis
-
-### ✅ Code Quality Metrics
-- Documentation coverage
-- Testing practices
-- CI/CD implementation
-- Code style adherence
-- Type checking usage
-- Linting configuration
-
-### 📊 Complexity Scoring
-- Beginner/Intermediate/Advanced classification
-- Complexity factors identification (1-10 scale)
-- Learning curve assessment
-- Technical debt indicators
-
-## 📄 Output Formats
+### 📊 SimpleProject Data Structure
+```json
+{
+  "name": "awesome-project",
+  "url": "https://github.com/user/awesome-project",
+  "description": "A modern web application built with FastAPI and React",
+  "technologies": ["Python", "FastAPI", "React", "PostgreSQL", "Docker"],
+  "key_features": ["User authentication", "REST API", "Real-time updates", "Database integration"],
+  "highlights": "Used by 1000+ developers, deployed in production environments"
+}
+```
 
 ### Console Output
 Rich-formatted panels with color coding:
-- 🔧 MCP Tools Used
-- 📁 Repository Structure
-- 📄 Important Files
-- 🤖 Structured AI Analysis
+- 🔗 Repository Info (name and URL)
+- 📋 Project Description
+- 🔧 Technologies Used
+- ⭐ Key Features
+- 🏆 Highlights and Achievements
 
 ### JSON Export
-Structured data export with validated schema:
-```json
-{
-  "repo_url": "https://github.com/user/repo",
-  "repo_info": {
-    "name": "repo",
-    "owner": "user",
-    "url": "https://github.com/user/repo"
-  },
-  "tools_used": ["git_directory_structure", "git_read_important_files"],
-  "technology_stack": {
-    "primary_language": "Python",
-    "languages": ["Python", "JavaScript"],
-    "frameworks": ["FastAPI", "React"],
-    "tools": ["Docker", "pytest"],
-    "databases": ["PostgreSQL"],
-    "deployment_tools": ["Docker", "GitHub Actions"],
-    "testing_frameworks": ["pytest", "Jest"]
-  },
-  "project_complexity": {
-    "level": "Intermediate",
-    "score": 6,
-    "factors": ["Multiple services", "Database integration"]
-  },
-  "code_quality": {
-    "has_tests": true,
-    "has_documentation": true,
-    "has_ci_cd": true,
-    "test_coverage": "High"
-  },
-  "is_complete": true,
-  "has_error": false
-}
-```
+Clean, structured JSON files saved to `projects/processed/` directory with the project name.
 
 ## 🔍 Troubleshooting
 
@@ -404,29 +301,30 @@ Structured data export with validated schema:
 
 1. **MCP Server Connection Failed**
    ```bash
-   # Ensure uvx is installed
-   pip install uvx
+   # Ensure Docker is installed and running
+   docker --version
+   docker run hello-world
    
-   # Test uvx installation
-   uvx --help
+   # Check Docker permissions
+   sudo usermod -aG docker $USER  # Add user to docker group
    ```
 
-2. **OpenRouter API Key Issues**
+2. **GitHub Personal Access Token Issues**
+   ```bash
+   # Check environment variable
+   echo $GITHUB_PERSONAL_ACCESS_TOKEN
+   
+   # Create a GitHub token at https://github.com/settings/tokens
+   # Required scopes: public_repo (or repo for private repos)
+   ```
+
+3. **OpenRouter API Key Issues**
    ```bash
    # Check environment variable
    echo $OPENROUTER_API_KEY
    
    # Verify API key format
    # Should start with 'sk-or-v1-'
-   ```
-
-3. **Structured Output Parsing Errors**
-   ```bash
-   # Check if OpenRouter supports structured outputs for your model
-   # Gemini 2.0 Flash should support JSON schema validation
-   
-   # Enable verbose mode to see parsing details
-   python -m analyze_git_projects.cli --verbose <repo_url>
    ```
 
 4. **Module Import Errors**
@@ -459,7 +357,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [git-ingest](https://github.com/adhikasp/mcp-git-ingest) - MCP server for repository analysis
 - [pydantic-ai](https://github.com/pydantic/pydantic-ai) - AI agent framework with structured outputs
 - [Rich](https://github.com/Textualize/rich) - Beautiful terminal output
-- [OpenRouter](https://openrouter.ai/) - AI model provider with JSON schema support
+- [OpenRouter](https://openrouter.ai/) - AI model provider
 
 ## 📞 Support
 
