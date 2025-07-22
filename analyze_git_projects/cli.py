@@ -12,9 +12,9 @@ import asyncio
 import sys
 from typing import List
 
-from .analyzer import GitIngestAnalyzer
+from .github_mcp_analyzer import GitHubMCAnalyzer
 from .display import ResultsDisplay
-from .models import AnalysisResults
+from .models.simple_project_schema import SimpleProject
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     
     parser.add_argument(
         "repo_urls",
-        nargs="+",
+        nargs="*",
         help="GitHub repository URLs to analyze"
     )
     
@@ -62,45 +62,67 @@ async def cli_main():
     
     try:
         # Initialize analyzer
-        analyzer = GitIngestAnalyzer(openrouter_api_key=args.api_key)
+        analyzer = GitHubMCAnalyzer(openrouter_api_key=args.api_key)
         
         # Test connection if requested
         if args.test_connection:
             connection_ok = await analyzer.test_connection()
             sys.exit(0 if connection_ok else 1)
         
-        # Test connection before proceeding
-        connection_ok = await analyzer.test_connection()
-        if not connection_ok:
-            print("❌ Cannot proceed without MCP server connection")
+        # Skip repo analysis if test connection was requested
+        if args.test_connection:
+            return
+        
+        # Test connection before proceeding (unless already tested)
+        if not args.test_connection:
+            connection_ok = await analyzer.test_connection()
+            if not connection_ok:
+                print("❌ Cannot proceed without MCP server connection")
+                sys.exit(1)
+        
+        # Skip analysis if test connection was requested
+        if args.test_connection:
+            return
+            
+        # Check if we have repo URLs to analyze
+        if not args.repo_urls:
+            print("❌ No repository URLs provided")
             sys.exit(1)
         
         # Analyze repositories
-        results_list: List[AnalysisResults] = []
+        projects_list: List[SimpleProject] = []
         
         for repo_url in args.repo_urls:
             print(f"\n🔍 Analyzing repository: {repo_url}")
             
             try:
-                results = await analyzer.analyze_repository(repo_url)
-                results_list.append(results)
+                project = await analyzer.analyze_repository(repo_url)
+                projects_list.append(project)
                 
                 # Display results
-                ResultsDisplay.display_results(results)
+                ResultsDisplay.display_results(project)
                 
                 # Save results to file
-                output_file = f"{args.output_dir}/analysis_{results.repo_info.name}.json"
-                ResultsDisplay.save_results_to_file(results, output_file)
+                repo_name = project.name or "unknown"
+                output_file = f"{args.output_dir}/analysis_{repo_name}.json"
+                ResultsDisplay.save_results_to_file(project, output_file)
                 
             except Exception as e:
                 print(f"❌ Failed to analyze {repo_url}: {e}")
-                error_result = AnalysisResults(repo_url=repo_url, error=str(e))
-                results_list.append(error_result)
+                error_project = SimpleProject(
+                    name=repo_url.split('/')[-1] if repo_url else "Unknown",
+                    url=repo_url,
+                    description=f"Analysis failed: {str(e)}",
+                    technologies=[],
+                    key_features=[],
+                    highlights=None
+                )
+                projects_list.append(error_project)
         
         # Display summary if multiple repos
-        if len(results_list) > 1:
+        if len(projects_list) > 1:
             print("\n" + "="*50)
-            ResultsDisplay.display_summary(results_list)
+            ResultsDisplay.display_summary(projects_list)
             
     except KeyboardInterrupt:
         print("\n⚠️ Analysis interrupted by user")
