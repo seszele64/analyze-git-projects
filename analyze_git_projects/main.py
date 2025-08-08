@@ -2,7 +2,7 @@ import asyncio
 from typing import List
 from rich.console import Console
 
-from .github_mcp_analyzer import GitHubMCAnalyzer
+from .github_mcp_analyzer import GitHubMCPAnalyzer
 from .display import ResultsDisplay
 from .models.simple_project_schema import SimpleProject
 
@@ -15,7 +15,7 @@ async def main():
     
     # Initialize analyzer
     try:
-        analyzer = GitHubMCAnalyzer()
+        analyzer = GitHubMCPAnalyzer()
     except Exception as e:
         console.print(f"[red]Failed to initialize analyzer: {str(e)}[/red]")
         return
@@ -48,7 +48,7 @@ async def main():
             ResultsDisplay.display_results(project)
             
             # Save results to file
-            output_file = ResultsDisplay.save_results_to_file(project)
+            output_file = ResultsDisplay.save_results_to_json(project)
             
         except Exception as e:
             console.print(f"[red]❌ Failed to analyze {repo_url}: {str(e)}[/red]")
