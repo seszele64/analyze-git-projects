@@ -12,7 +12,7 @@ import asyncio
 import sys
 from typing import List
 
-from .github_mcp_analyzer import GitHubMCAnalyzer
+from .github_mcp_analyzer import GitHubMCPAnalyzer
 from .display import ResultsDisplay
 from .models.simple_project_schema import SimpleProject
 
@@ -62,7 +62,7 @@ async def cli_main():
     
     try:
         # Initialize analyzer
-        analyzer = GitHubMCAnalyzer(openrouter_api_key=args.api_key)
+        analyzer = GitHubMCPAnalyzer(openrouter_api_key=args.api_key)
         
         # Test connection if requested
         if args.test_connection:
@@ -105,7 +105,8 @@ async def cli_main():
                 # Save results to file
                 repo_name = project.name or "unknown"
                 output_file = f"{args.output_dir}/analysis_{repo_name}.json"
-                ResultsDisplay.save_results_to_file(project, output_file)
+                with open(output_file, 'w') as f:
+                    f.write(SimpleProject.to_json(project))
                 
             except Exception as e:
                 print(f"❌ Failed to analyze {repo_url}: {e}")
