@@ -8,11 +8,11 @@ __version__ = "1.0.0"
 
 # Import main classes - handle import errors gracefully for development
 try:
-    from .github_mcp_analyzer import GitHubMCAnalyzer
+    from .github_mcp_analyzer import GitHubMCPAnalyzer
     from .models.simple_project_schema import SimpleProject
     from .display import ResultsDisplay
     
-    __all__ = ["GitHubMCAnalyzer", "SimpleProject", "ResultsDisplay"]
+    __all__ = ["GitHubMCPAnalyzer", "SimpleProject", "ResultsDisplay"]
 except ImportError as e:
     # During development, modules might not be complete yet
     print(f"Warning: Some modules not yet available: {e}")
