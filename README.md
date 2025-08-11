@@ -1,24 +1,23 @@
 # Analyze Git Projects
 
-A powerful tool for analyzing GitHub repositories using the official GitHub MCP (Model Context Protocol) server and AI-powered analysis. This tool provides comprehensive insights into repository structure, technology stack, and project characteristics using a clean, simple data model.
+A powerful tool for analyzing GitHub repositories using MCP (Model Context Protocol) servers and AI-powered analysis with Pydantic AI agents. This tool provides comprehensive insights into repository structure, technology stack, and project characteristics using structured output parsing.
 
 ## 🚀 Features
 
-- **Automated Repository Analysis**: Analyze any GitHub repository URL
-- **MCP Server Integration**: Uses git-ingest MCP server for repository data extraction
-- **AI-Powered Insights**: Leverages OpenRouter with structured output parsing
-- **Simple Data Model**: Clean, focused Pydantic model for analysis results
+- **GitHub Repository Analysis**: Analyze GitHub repositories using MCP servers
+- **MCP Server Integration**: Uses GitHub MCP server for repository data extraction
+- **AI-Powered Insights**: Leverages OpenRouter with Pydantic AI agents and structured output
+- **Structured Output**: Type-safe analysis results using Pydantic models
 - **Rich Console Output**: Beautiful formatted output with Rich library
-- **JSON Export**: Save analysis results for later use
-- **CLI Interface**: Command-line tool for batch processing
-- **Modular Architecture**: Clean, maintainable code structure
+- **Example Use Cases**: Multiple examples for different analysis scenarios
+- **Modular Architecture**: Clean, maintainable code structure with configurable agents
 
 ## 📋 Requirements
 
-- Python 3.8+
-- Docker (for running GitHub MCP server)
+- Python 3.12+
 - OpenRouter API key (for AI analysis)
 - GitHub Personal Access Token (for repository access)
+- MCP server dependencies (automatically managed)
 
 ## 🛠️ Installation
 
@@ -31,21 +30,12 @@ A powerful tool for analyzing GitHub repositories using the official GitHub MCP 
 2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   # or using pip install -e . for development
    ```
 
-3. **Install Docker (if not already installed):**
+3. **Set up environment variables:**
    ```bash
-   # On Ubuntu/Debian
-   sudo apt-get update
-   sudo apt-get install docker.io
-   
-   # On macOS
-   brew install docker
-   ```
-
-4. **Set up environment variables:**
-   ```bash
-   # Create .env file
+   # Create .env file in the root directory
    echo "OPENROUTER_API_KEY=your_api_key_here" > .env
    echo "GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token_here" >> .env
    ```
@@ -55,54 +45,123 @@ A powerful tool for analyzing GitHub repositories using the official GitHub MCP 
 ```
 analyze_git_projects/
 ├── __init__.py          # Package initialization
-├── models/             # Pydantic data models
-│   ├── __init__.py
-│   ├── simple_project_schema.py  # SimpleProject model
-│   └── other_models.py # Additional models
-├── display.py          # Results formatting and display
-├── main.py             # Main test runner
-├── cli.py              # Command-line interface
-└── github_mcp_analyzer.py  # GitHub MCP integration
+├── agent.py             # GitHubAgent class inheriting from pydantic_ai.Agent
+├── config.py            # Configuration models for MCP servers
+├── logging.py           # Logging utilities and configuration
+├── mcp_server_factory.py # Factory for creating MCP servers
+└── examples/            # Example scripts demonstrating different use cases
+    ├── check_language_and_framework.py  # Simple language detection
+    ├── zen_master_code_explainer.py     # Code explanation system
+    ├── analyze_repo_for_portfolio.py    # Portfolio analysis
+    └── ...
 ```
 
 ### Core Components
 
-#### 🔍 `analyzer.py` - GitIngestAnalyzer
-The main analyzer class that:
-- Initializes MCP server connection
-- Configures AI agent with OpenRouter and structured output
-- Orchestrates repository analysis workflow
-- Handles error recovery and logging
+#### 🤖 `agent.py` - GitHubAgent
+The main agent class that:
+- Inherits from pydantic_ai.Agent for structured AI interactions
+- Configures MCP server connections for GitHub data access
+- Provides flexible model and provider configuration
+- Handles structured output parsing with Pydantic models
+- Supports both sync and async operations
 
-#### 📊 `simple_project_schema.py` - SimpleProject Model
-Clean, focused Pydantic model for repository analysis:
-- `name`: Project name
-- `url`: Repository URL (optional)
-- `description`: Brief project description
-- `technologies`: List of key technologies used
-- `key_features`: Notable features and capabilities
-- `highlights`: Achievements, usage metrics, or outcomes (optional)
+#### 🏭 `mcp_server_factory.py` - MCP Server Factory
+Factory for creating MCP servers:
+- GitHub MCP server configuration and creation
+- Read-only server instances for safe repository access
+- Configurable authentication and permissions
+- Server lifecycle management
 
-#### 🎨 `display.py` - ResultsDisplay
-Handles output formatting and file operations:
-- Rich console formatting with panels and colors
-- JSON export functionality
-- Analysis summaries for multiple repositories
-- Clean, focused display of SimpleProject data
+#### ⚙️ `config.py` - Configuration Management
+Configuration models for:
+- GitHub MCP server settings
+- API credentials and authentication
+- Server parameters and options
+- Type-safe configuration handling
 
-#### 🖥️ `cli.py` - Command Line Interface
-Full-featured CLI with:
-- Multiple repository analysis
-- Custom output directories
-- Connection testing
-- Verbose error reporting
+#### 🗂️ `examples/` - Use Case Demonstrations
+Multiple examples showing:
+- **Language/Framework Detection**: Simple analysis for tech stack identification
+- **Code Explanation**: Deep code understanding and documentation
+- **Portfolio Analysis**: Repository evaluation for professional portfolios
+- **Zen Master**: Philosophy-driven code analysis with clear relationships
 
 ## 🚀 Usage
 
 ### 1. Quick Start (Test Mode)
-Run the built-in test with sample repository:
+Run a simple test example:
 ```bash
-python -m analyze_git_projects.main
+python -m examples.check_language_and_framework
+```
+
+### 2. Using Examples
+The project includes several examples demonstrating different use cases:
+
+#### Language and Framework Detection
+```bash
+python -m examples.check_language_and_framework
+```
+This example shows how to:
+- Create a structured output model (`SimpleProject`)
+- Use GitHub MCP server to read repository files
+- Extract language and framework information
+
+#### Code Explanation (Zen Master)
+```bash
+python -m examples.zen_master_code_explainer
+```
+This example demonstrates:
+- Complex code analysis with relationship mapping
+- Structured breakdown of code components
+- Purpose-driven code understanding
+
+#### Portfolio Analysis
+```bash
+python -m examples.analyze_repo_for_portfolio
+```
+For analyzing repositories for portfolio purposes:
+- Technology stack identification
+- Project complexity assessment
+- Key features extraction
+
+### 3. Python API
+Use as a library in your own code:
+```python
+import os
+from dotenv import load_dotenv
+from analyze_git_projects.agent import GitHubAgent
+from analyze_git_projects.mcp_server_factory import create_read_only_server
+from pydantic import BaseModel
+
+load_dotenv()
+
+# Define your output structure
+class ProjectAnalysis(BaseModel):
+    language: str
+    framework: str
+    description: str
+
+# Create MCP server
+mcp_server = create_read_only_server(
+    github_pat=os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+)
+
+# Initialize agent
+agent = GitHubAgent(
+    model_name="google/gemini-2.5-flash-lite",
+    system_prompt="You are helpful assistant that analyzes GitHub repositories.",
+    mcp_servers=[mcp_server],
+    llm_provider='openrouter'
+)
+
+# Run analysis
+response = agent.run_sync(
+    user_prompt="Analyze https://github.com/user/repo",
+    output_type=ProjectAnalysis
+)
+
+print(response.output)
 ```
 
 ### 2. Command Line Interface
@@ -227,13 +286,14 @@ asyncio.run(analyze_repo())
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
+Run the available tests:
 ```bash
 # Run all tests
-python -m pytest tests/test_simple_project.py -v
+python -m pytest tests/ -v
 
-# Run with coverage
-python -m pytest tests/test_simple_project.py --cov=analyze_git_projects
+# Run specific test files
+python -m pytest tests/test_agent_prompt.py -v
+python -m pytest tests/test_mcp_server_factory.py -v
 ```
 
 ## 🔧 Configuration
@@ -243,39 +303,43 @@ python -m pytest tests/test_simple_project.py --cov=analyze_git_projects
 # Required for AI analysis
 OPENROUTER_API_KEY=your_openrouter_api_key
 
-# Optional: Custom MCP server configuration
-GIT_INGEST_SERVER_COMMAND=uvx
-GIT_INGEST_SERVER_ARGS=--from,git+https://github.com/adhikasp/mcp-git-ingest,mcp-git-ingest
+# Required for GitHub repository access
+GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token
+
+# Optional: Configure logging level
+LOG_LEVEL=INFO
 ```
 
-### 📖 CLI Arguments Reference
+## � Analysis Output
 
-```bash
-python -m analyze_git_projects.cli [OPTIONS] REPO_URLS...
+The analyzer provides flexible, structured output based on your Pydantic models:
+
+### 🏗️ Architecture Patterns
+The project supports different analysis patterns:
+
+- **Simple Analysis**: Basic language and framework detection
+- **Complex Analysis**: Detailed code relationship mapping
+- **Portfolio Analysis**: Project evaluation for professional presentation
+- **Code Explanation**: In-depth understanding of code structure and purpose
+
+### � Example Output Structures
+
+#### SimpleProject Model (from examples)
+```python
+class SimpleProject(BaseModel):
+    language: str
+    framework: str
 ```
 
-#### Positional Arguments
-| Argument | Description | Example |
-|----------|-------------|---------|
-| `repo_urls` | One or more GitHub repository URLs to analyze | `https://github.com/user/repo` |
-
-#### Options
-| Flag | Long Form | Type | Default | Description |
-|------|-----------|------|---------|-------------|
-| `-h` | `--help` | - | - | Show help message and exit |
-| | `--api-key` | `TEXT` | `$OPENROUTER_API_KEY` | OpenRouter API key (overrides env var) |
-| | `--output-dir` | `TEXT` | `.` | Directory to save analysis results |
-| | `--test-connection` | `FLAG` | `False` | Test MCP server connection and exit |
-| `-v` | `--verbose` | `FLAG` | `False` | Enable verbose output and debug info |
-
-## 📈 Analysis Output
-
-The analyzer provides focused insights using the SimpleProject model:
-
-### 📊 SimpleProject Data Structure
-```json
-{
-  "name": "awesome-project",
+#### CodeExplanation Model (from zen_master example)
+```python
+class CodeObject(BaseModel):
+    name: str
+    type: str  # class, function, module, etc.
+    purpose: str  # WHY this exists
+    responsibility: str  # WHAT it does
+    boundaries: str  # WHAT it does NOT do
+```
   "url": "https://github.com/user/awesome-project",
   "description": "A modern web application built with FastAPI and React",
   "technologies": ["Python", "FastAPI", "React", "PostgreSQL", "Docker"],
@@ -284,61 +348,48 @@ The analyzer provides focused insights using the SimpleProject model:
 }
 ```
 
-### Console Output
-Rich-formatted panels with color coding:
-- 🔗 Repository Info (name and URL)
-- 📋 Project Description
-- 🔧 Technologies Used
-- ⭐ Key Features
-- 🏆 Highlights and Achievements
-
-### JSON Export
-Clean, structured JSON files saved to `projects/processed/` directory with the project name.
+### 🎯 Output Features
+- **Type Safety**: All outputs are validated with Pydantic models
+- **Flexibility**: Define custom output structures for your use case
+- **Rich Formatting**: Console output with syntax highlighting and panels
+- **Structured Data**: Easy to process results programmatically
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **MCP Server Connection Failed**
+1. **Missing Environment Variables**
    ```bash
-   # Ensure Docker is installed and running
-   docker --version
-   docker run hello-world
+   # Check that required environment variables are set
+   echo $OPENROUTER_API_KEY
+   echo $GITHUB_PERSONAL_ACCESS_TOKEN
    
-   # Check Docker permissions
-   sudo usermod -aG docker $USER  # Add user to docker group
+   # If missing, add them to your .env file
+   echo "OPENROUTER_API_KEY=your_key_here" >> .env
+   echo "GITHUB_PERSONAL_ACCESS_TOKEN=your_token_here" >> .env
    ```
 
 2. **GitHub Personal Access Token Issues**
    ```bash
-   # Check environment variable
-   echo $GITHUB_PERSONAL_ACCESS_TOKEN
-   
    # Create a GitHub token at https://github.com/settings/tokens
    # Required scopes: public_repo (or repo for private repos)
    ```
 
 3. **OpenRouter API Key Issues**
    ```bash
-   # Check environment variable
-   echo $OPENROUTER_API_KEY
-   
-   # Verify API key format
-   # Should start with 'sk-or-v1-'
+   # Verify API key format (should start with 'sk-or-v1-')
+   # Get your API key from https://openrouter.ai/
    ```
 
 4. **Module Import Errors**
    ```bash
-   # Run from project root directory
+   # Ensure you're running from the project root directory
    cd /path/to/analyze-git-projects
-   python -m analyze_git_projects.main
+   python -m examples.check_language_and_framework
    ```
 
 ### Debug Mode
-Enable verbose output for detailed error information:
-```bash
-python -m analyze_git_projects.cli --verbose <repo_url>
-```
+Enable verbose output in examples by modifying the logging configuration or adding print statements for debugging.
 
 ## 🤝 Contributing
 
@@ -354,7 +405,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- [git-ingest](https://github.com/adhikasp/mcp-git-ingest) - MCP server for repository analysis
+- [GitHub MCP Server](https://github.com/modelcontextprotocol/servers) - MCP server for GitHub repository access
 - [pydantic-ai](https://github.com/pydantic/pydantic-ai) - AI agent framework with structured outputs
 - [Rich](https://github.com/Textualize/rich) - Beautiful terminal output
 - [OpenRouter](https://openrouter.ai/) - AI model provider
