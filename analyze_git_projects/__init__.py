@@ -1,19 +1,11 @@
 """
-Git-Ingest Repository Analyzer
+Github MCP Repository Analyzer
 
-A tool for analyzing GitHub repositories using git-ingest MCP server and AI analysis.
+A tool for analyzing GitHub repositories using Github MCP server and Pydantic ai agent
 """
 
 __version__ = "1.0.0"
 
-# Import main classes - handle import errors gracefully for development
-try:
-    from .github_mcp_analyzer import GitHubMCPAnalyzer
-    from .models.simple_project_schema import SimpleProject
-    from .display import ResultsDisplay
-    
-    __all__ = ["GitHubMCPAnalyzer", "SimpleProject", "ResultsDisplay"]
-except ImportError as e:
-    # During development, modules might not be complete yet
-    print(f"Warning: Some modules not yet available: {e}")
-    __all__ = []
+from .agent import GitHubAgent
+from .mcp_server_factory import GitHubMCPServerFactory
+from .config import GitHubMCPServerConfig
