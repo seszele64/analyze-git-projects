@@ -1,22 +1,17 @@
-"""Custom GitHub Agent inheriting from pydantic_ai.Agent."""
+"""Custom GitHub Agent using mcp_use for MCP integration."""
 
+import asyncio
 import os
 import logging
 import time
-from typing import Optional, Any, List, Type, Dict
+from typing import Optional, Any, Dict
 
-from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.tools import StructuredTool
+from mcp_use import MCPAgent, MCPClient
+from dotenv import load_dotenv
 
-from pydantic_ai.mcp import MCPServerStdio
-
-import logfire
-
-from .mcp_server_factory import GitHubMCPServerFactory, create_read_only_server
-from .config import GitHubMCPServerConfig
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -29,130 +24,168 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configure Logfire (defaults to console output or cloud if token provided)
-logfire.configure(scrubbing=False)
-
-
-# Capture full HTTP request/response (including headers and body)
-logfire.instrument_httpx(capture_all=True)
-
 class GitHubAgent:
-    """GitHub repository analysis agent using LangChain.
+    """GitHub repository analysis agent using mcp_use for MCP integration.
     
-    WHY THIS EXISTS: Provides structured GitHub analysis through LangChain
-    with type-safe inputs/outputs and configurable tools.
+    WHY THIS EXISTS: Provides structured GitHub analysis through mcp_use
+    with simplified MCP client management and async execution.
     
-    RESPONSIBILITY: Orchestrates LangChain components for repository analysis
-    DOES: Prompt engineering, tool management, structured output parsing
-    DOES NOT: Direct GitHub API calls (handled by MCP tools)
+    RESPONSIBILITY: Orchestrates MCP client and LLM for repository analysis
+    DOES: Load MCP config from JSON, manage async execution, provide sync interface
+    DOES NOT: Complex tool management (handled by mcp_use)
     """
 
-    system_prompt: str = \
-    """
-    You are a GitHub repository analysis expert. Your job is to analyze GitHub repositories and provide insights about their structure, technologies and development activity.
-    """
-    
     def __init__(
         self,
-        system_prompt: Optional[str] = system_prompt,
-        output_type: Optional[Type[Any]] = None,
+        system_prompt: Optional[str] = None,
         model_name: Optional[str] = None,
-        llm_provider: Optional[str] = None,
-        mcp_servers: Optional[List[MCPServerStdio]] = None,  # LangChain tools
+        config_file: str = "github_mcp.json",
+        max_steps: int = 30,
         **kwargs: Any
     ):
         """
-        Initialize GitHubAgent with enhanced configuration options.
+        Initialize GitHubAgent with mcp_use integration.
         
         Args:
             system_prompt: Custom system prompt for the agent
-            output_type: Output type for structured responses
-            model_name: OpenAI model name to use
-            mcp_servers: MCP servers to include
+            model_name: Model name to use (supports OpenRouter models)
+            config_file: Path to MCP configuration JSON file
+            max_steps: Maximum steps for agent execution
             **kwargs: Additional configuration arguments
         """
         start_time = time.time()
-        logger.info("Initializing GitHubAgent...")
-        logger.debug(f"GitHubAgent.__init__ parameters: system_prompt={system_prompt is not None}, result_type={output_type}, model_name={model_name}")
+        logger.info("Initializing GitHubAgent with mcp_use...")
         
-        # Create model using the property getter
-        logger.info(f"Initializing LangChain model: {model_name}")
-        self.system_prompt = system_prompt or self.system_prompt
+        self.system_prompt = system_prompt or """
+        You are a GitHub repository analysis expert. Your job is to analyze GitHub repositories and provide insights about their structure, technologies and development activity.
+        """
         
-        # Initialize core components with strong typing
-        self.llm: BaseChatModel = ChatOpenAI(
-            model=model_name,
-            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-            base_url=kwargs.get("base_url", "https://openrouter.ai/api/v1"),
-            temperature=0.7
+        self.config_file = config_file
+        self.max_steps = max_steps
+        
+        # Initialize MCP client from config file
+        self.client = MCPClient.from_config_file(config_file)
+        logger.info(f"Loaded MCP client from {config_file}")
+        
+        # Configure LLM based on provider
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        # Default to OpenRouter if available, fallback to OpenAI
+        if openrouter_api_key and not kwargs.get("force_openai"):
+            self.llm = ChatOpenAI(
+                model=model_name or "google/gemini-2.5-flash-lite",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=openrouter_api_key,
+                temperature=kwargs.get("temperature", 0.7),
+                max_tokens=kwargs.get("max_tokens", 65536)
+            )
+            logger.info(f"Using OpenRouter model: {model_name or 'google/gemini-2.5-flash-lite'}")
+        elif openai_api_key:
+            self.llm = ChatOpenAI(
+                model=model_name or "gpt-4o-mini",
+                api_key=openai_api_key,
+                temperature=kwargs.get("temperature", 0.7)
+            )
+            logger.info(f"Using OpenAI model: {model_name or 'gpt-4o-mini'}")
+        else:
+            raise ValueError("No API key found. Please set OPENROUTER_API_KEY or OPENAI_API_KEY environment variable.")
+        
+        # Create MCP agent
+        self.agent = MCPAgent(
+            llm=self.llm,
+            client=self.client,
+            max_steps=self.max_steps,
+            system_prompt=self.system_prompt
         )
         
-        # Convert MCP servers to LangChain tools
-        self.tools: List[StructuredTool] = [
-            self._create_mcp_tool(server)  # type: ignore
-            for server in (mcp_servers or [])
-        ] if mcp_servers else []
-
-        # Configure prompt engineering
-        self.system_prompt_template = SystemMessagePromptTemplate.from_template(
-            template=system_prompt or self.system_prompt,
-            input_types={"query": str}
-        )
-        
-        # Set up structured output parsing
-        self.output_parser = PydanticOutputParser(pydantic_object=output_type)
-        
-        # Full prompt chain
-        self.prompt = ChatPromptTemplate.from_messages([
-            self.system_prompt_template,
-            HumanMessagePromptTemplate.from_template("{query}\n{format_instructions}"),
-        ]).partial(
-            format_instructions=self.output_parser.get_format_instructions()
-        )
-
-        logger.debug("LangChain components initialized successfully")
-        
-        # Remove parent class initialization
         init_time = time.time() - start_time
         logger.info(f"GitHubAgent initialized successfully in {init_time:.2f} seconds")
 
-    def run_sync(self, user_prompt: str) -> Any:
-        """Execute the agent synchronously with proper LangChain integration.
+    def run_sync(self, user_prompt: str) -> str:
+        """Execute the agent synchronously.
         
-        WHY THIS EXISTS: Provides a clean interface for synchronous execution
-        RESPONSIBILITY: Orchestrates prompt formatting, LLM invocation, and output parsing
+        WHY THIS EXISTS: Provides a clean sync interface for async MCP operations
+        RESPONSIBILITY: Handle async execution in sync context
         """
-        formatted_prompt = self.prompt.format_prompt(query=user_prompt)
-        response = self.llm.invoke(formatted_prompt.to_messages())
-        return self.output_parser.parse(response.content)
+        try:
+            logger.info(f"Executing agent with prompt: {user_prompt[:100]}...")
+            
+            # Run the async agent in a sync context
+            result = asyncio.run(self._run_async(user_prompt))
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in run_sync: {str(e)}")
+            raise
 
-    def _create_mcp_tool(self, server: Any) -> StructuredTool:
-        """Convert MCP server to LangChain tool with type safety.
+    async def run_async(self, user_prompt: str) -> str:
+        """Execute the agent asynchronously.
         
-        WHY THIS EXISTS: Bridges legacy MCP servers to LangChain's tool interface
-        RESPONSIBILITY: Standardize tool inputs/outputs while preserving functionality
+        WHY THIS EXISTS: Provides direct async interface for better performance
+        RESPONSIBILITY: Handle async execution directly
         """
-        """Convert MCP server to LangChain tool with fallback values."""
-        return StructuredTool(
-            name=getattr(server, 'name', 'mcp_server'),
-            description=getattr(server, 'description', f"Tool for {getattr(server, 'name', 'MCP')} operations"),
-            func=lambda *args, **kwargs: server.run(*args, **kwargs),  # Proper callable wrapper
-            args_schema=getattr(server, 'args_schema', None)
-        )
+        return await self._run_async(user_prompt)
 
-    def update_github_config(self, config: GitHubMCPServerConfig) -> None:
-        """Update GitHub MCP server configuration."""
-        self._github_config = config
-        # Reset mcp_servers to force recreation with new config
-        if hasattr(self, '_mcp_servers'):
-            delattr(self, '_mcp_servers')
-        logger.info("GitHub MCP server configuration updated")
+    async def _run_async(self, user_prompt: str) -> str:
+        """Internal async execution method."""
+        try:
+            result = await self.agent.run(user_prompt)
+            logger.info("Agent execution completed successfully")
+            return result
+        except Exception as e:
+            logger.error(f"Error in async execution: {str(e)}")
+            raise
+        finally:
+            # Ensure client sessions are properly closed
+            await self.client.close_all_sessions()
 
-    def update_github_config_from_dict(self, config_dict: Dict[str, Any]) -> None:
-        """Update GitHub MCP server configuration from dictionary."""
-        config = GitHubMCPServerConfig(**config_dict)
-        self.update_github_config(config)
-    
-    def get_current_config(self) -> Optional[GitHubMCPServerConfig]:
-        """Get the current GitHub MCP server configuration."""
-        return self._github_config
+    def update_config(self, config_file: str) -> None:
+        """Update MCP configuration from a new file.
+        
+        WHY THIS EXISTS: Allows dynamic reconfiguration without recreating agent
+        RESPONSIBILITY: Reload MCP client with new configuration
+        """
+        try:
+            logger.info(f"Updating configuration from {config_file}")
+            
+            # Close existing client sessions
+            asyncio.run(self.client.close_all_sessions())
+            
+            # Load new configuration
+            self.client = MCPClient.from_config_file(config_file)
+            self.config_file = config_file
+            
+            # Recreate agent with new client
+            self.agent = MCPAgent(
+                llm=self.llm,
+                client=self.client,
+                max_steps=self.max_steps,
+                system_prompt=self.system_prompt
+            )
+            
+            logger.info("Configuration updated successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to update configuration: {e}")
+            raise
+
+    def get_config_file(self) -> str:
+        """Get the current configuration file path."""
+        return self.config_file
+
+    def close(self) -> None:
+        """Close all MCP client sessions."""
+        try:
+            asyncio.run(self.client.close_all_sessions())
+            logger.info("GitHubAgent closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing GitHubAgent: {e}")
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
+        self.close()
