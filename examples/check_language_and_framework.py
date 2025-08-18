@@ -14,38 +14,36 @@ mcp_server = create_read_only_server(github_pat=os.getenv("GITHUB_PERSONAL_ACCES
 from pydantic import BaseModel
 
 class SimpleProject(BaseModel):
-    """Example output type for GitHub analysis."""
-    language: str
-    framework: str
-
-# implement langchain prompt
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-
-parser = JsonOutputParser(pydantic_object=SimpleProject)
-prompt_template = PromptTemplate(
-    input_variables=["file_url"],
-    template="Read the file at {file_url} and provide language and framework information. {format_instructions}",
-    output_parser=parser,
-    partial_variables={"format_instructions": parser.get_format_instructions()}
-)
+    """Example output type for GitHub analysis.
+    
+    WHY THIS EXISTS: Provides structured analysis results with type safety
+    RESPONSIBILITY: Encapsulates language and framework detection results
+    """
+    language: str = Field(description="Primary programming language used")
+    framework: str = Field(description="Main framework/library detected")
 
 agent1 = GitHubAgent(
-    model_name="google/gemini-2.5-flash-lite",
-    system_prompt="You are helpful assistant that reads and analyzes GitHub files.",
+    model_name="google/gemini-2.5-flash-lite",  # OpenRouter model name format
+    system_prompt="Analyze GitHub repositories to detect programming languages and frameworks.",
     mcp_servers=[mcp_server],
-    llm_provider='openrouter'
+    llm_provider='openrouter',
+    output_type=SimpleProject,
+    base_url="https://openrouter.ai/api/v1",  # Explicit OpenRouter endpoint
+    openai_api_key=os.getenv("OPENROUTER_API_KEY")  # Use OpenRouter key
 )
 
 print("✅ Typed configuration system ready!")
-response = agent1.run_sync(
-    user_prompt=prompt_template.format(file_url="https://github.com/ranaroussi/yfinance/blob/main/tests/test_cache.py"),
-    output_type=SimpleProject
+# Execute the analysis using LangChain's invocation pattern
+response = agent1.llm.invoke(
+    agent1.prompt.format_prompt(
+        query="Analyze the repository at https://github.com/ranaroussi/yfinance/blob/main/tests/test_cache.py"
+    )
 )
+parsed_response = agent1.output_parser.parse(response.content)
 
 print("Response:", response)
-print(response.output)
-print("Response type:", type(response))
+print("Response:", parsed_response)
+print("Response type:", type(parsed_response))
 
-print("language:", response.output.language)
-print("framework:", response.output.framework)
+print("language:", parsed_response.language)
+print("framework:", parsed_response.framework)
