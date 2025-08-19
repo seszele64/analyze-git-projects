@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
 
 from analyze_git_projects.agent import GitHubAgent
 
@@ -103,8 +104,24 @@ class DocumentationAnalyzer:
             # Update the config file with the provided GitHub PAT
             self._update_config_file()
             
+            # Configure LLM based on available API keys
+            import os
+            openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+            
+            if openrouter_api_key:
+                llm = ChatOpenAI(
+                    model="google/gemini-2.5-flash-lite",
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=openrouter_api_key,
+                    temperature=0.7,
+                    max_tokens=65536
+                )
+                self.logger.info("Using OpenRouter with google/gemini-2.5-flash-lite")
+            else:
+                raise ValueError("No API key found. Please set OPENROUTER_API_KEY environment variable.")
+            
             self.agent = GitHubAgent(
-                model_name="google/gemini-2.5-flash-lite",
+                llm=llm,
                 system_prompt="""You are an expert technical documentation analyst specializing in resume content extraction.
 Your role is to thoroughly analyze GitHub repository documentation and provide structured insights for resume use.
 
