@@ -35,46 +35,6 @@ from analyze_git_projects.agent import GitHubAgent
 # Load environment variablest
 load_dotenv()
 
-# Configure logging when module is imported
-def _setup_logging():
-    """Set up logging configuration for the module."""
-    import os
-    
-    # Get the project root directory
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    log_file_path = os.path.join(project_root, 'documentation_analysis.log')
-    
-    # Create a specific logger for this module
-    logger = logging.getLogger('documentation_analysis')
-    logger.setLevel(logging.INFO)
-    
-    # Remove any existing handlers to prevent duplicates
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    
-    # Create file handler
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.INFO)
-    
-    # Create console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    
-    # Create formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-    
-    # Add handlers to logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    
-    return logger
-
-# Set up logging on module import
-logger = _setup_logging()
-
-
 class DocumentationAnalysis(BaseModel):
     """Resume-focused analysis of GitHub repositories."""
     
@@ -132,7 +92,7 @@ class DocumentationAnalyzer:
         self.github_pat = github_pat
         self.config_file = config_file
         self.agent = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger()
         self._setup_components()
     
     def _setup_components(self) -> None:
@@ -443,7 +403,7 @@ def main():
     # Get GitHub token
     github_pat = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
     if not github_pat:
-        logging.getLogger(__name__).error("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set")
+        logging.getLogger().error("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set")
         sys.exit(1)
     
     try:
@@ -481,7 +441,7 @@ def main():
                 print(format_analysis_output(analysis))
     
     except Exception as e:
-        logging.getLogger(__name__).error(f"Analysis failed: {e}")
+        logging.getLogger().error(f"Analysis failed: {e}")
         sys.exit(1)
 
 
