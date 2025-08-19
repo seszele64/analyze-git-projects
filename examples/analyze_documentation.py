@@ -366,28 +366,132 @@ def format_analysis_output(analysis: DocumentationAnalysis) -> str:
     return "\n".join(output)
 
 
+def read_repositories_from_file(file_path: str) -> List[str]:
+    """
+    Read repository URLs from a text file.
+    
+    WHY THIS EXISTS: Allows batch processing of repositories from a file.
+    
+    RESPONSIBILITY: Read and validate repository URLs from file.
+    
+    Args:
+        file_path: Path to the file containing repository URLs
+        
+    Returns:
+        List of validated repository URLs
+        
+    Raises:
+        FileNotFoundError: If the input file doesn't exist
+        ValueError: If the file contains invalid URLs
+    """
+    try:
+        with open(file_path, 'r') as f:
+            urls = []
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if line and not line.startswith('#'):  # Skip empty lines and comments
+                    # Basic URL validation
+                    if 'github.com' in line and len(line.split('/')) >= 5:
+                        urls.append(line)
+                    else:
+                        logging.getLogger().warning(
+                            f"Skipping invalid URL on line {line_num}: {line}"
+                        )
+            return urls
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Input file not found: {file_path}")
+
+
+def save_analysis_to_json(analysis: DocumentationAnalysis, output_dir: str, repo_url: str) -> str:
+    """
+    Save analysis results to JSON file in specified directory.
+    
+    WHY THIS EXISTS: Provides structured output for further processing.
+    
+    RESPONSIBILITY: Serialize analysis to JSON and save to file.
+    
+    Args:
+        analysis: The analysis results to save
+        output_dir: Directory to save the JSON file
+        repo_url: Repository URL for filename generation
+        
+    Returns:
+        Path to the saved JSON file
+    """
+    import json
+    
+    def serialize_analysis(analysis):
+        """Convert analysis to serializable dict."""
+        if hasattr(analysis, 'dict'):
+            return analysis.dict()
+        elif isinstance(analysis, dict):
+            return analysis
+        else:
+            # Handle Pydantic objects
+            return {k: v for k, v in analysis.__dict__.items() if not k.startswith('_')}
+    
+    # Create safe filename from URL
+    safe_filename = repo_url.replace('https://', '').replace('/', '_').replace(':', '_')
+    output_file = os.path.join(output_dir, f"{safe_filename}_analysis.json")
+    
+    with open(output_file, 'w') as f:
+        json.dump(serialize_analysis(analysis), f, indent=2, default=str)
+    
+    return output_file
+
+
 def main():
     """Main entry point for the documentation analyzer."""
     
     parser = argparse.ArgumentParser(
-        description="Analyze GitHub repository documentation using MCP server"
+        description="Analyze GitHub repository documentation using MCP server",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze single repository to console
+  python analyze_documentation.py https://github.com/user/repo
+  
+  # Analyze multiple repositories from file to JSON
+  python analyze_documentation.py --input-file repos.txt --output json --output-dir ./results
+  
+  # Analyze mixed sources with verbose logging
+  python analyze_documentation.py https://github.com/user/repo1 --input-file repos.txt --verbose
+        """
     )
-    parser.add_argument(
+    
+    # Input sources
+    input_group = parser.add_mutually_exclusive_group(required=False)
+    input_group.add_argument(
         'repos',
-        nargs='+',
-        help='GitHub repository URLs to analyze'
+        nargs='*',
+        help='GitHub repository URLs to analyze (space-separated)'
     )
+    input_group.add_argument(
+        '--input-file',
+        help='File containing repository URLs (one per line, comments with #)'
+    )
+    
+    # Configuration options
     parser.add_argument(
         '--config',
         default='github_mcp.json',
         help='MCP configuration file path (default: github_mcp.json)'
     )
+    
+    # Output options
     parser.add_argument(
         '--output',
         choices=['console', 'json'],
         default='console',
         help='Output format (default: console)'
     )
+    parser.add_argument(
+        '--output-dir',
+        default='.',
+        help='Directory for JSON output files (default: current directory)'
+    )
+    
+    # Logging options
     parser.add_argument(
         '--verbose',
         action='store_true',
@@ -399,6 +503,8 @@ def main():
     # Configure logging
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
     
     # Get GitHub token
     github_pat = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
@@ -406,17 +512,65 @@ def main():
         logging.getLogger().error("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set")
         sys.exit(1)
     
+    # Collect repository URLs from all sources
+    repo_urls = []
+    
+    # Add URLs from command line arguments
+    if args.repos:
+        repo_urls.extend(args.repos)
+    
+    # Add URLs from input file
+    if args.input_file:
+        try:
+            file_urls = read_repositories_from_file(args.input_file)
+            repo_urls.extend(file_urls)
+            logging.getLogger().info(f"Loaded {len(file_urls)} repositories from {args.input_file}")
+        except FileNotFoundError as e:
+            logging.getLogger().error(str(e))
+            sys.exit(1)
+    
+    # Validate we have URLs to process
+    if not repo_urls:
+        parser.error("No repository URLs provided. Use positional arguments or --input-file")
+    
+    # Validate output directory for JSON mode
+    if args.output == 'json':
+        if not os.path.exists(args.output_dir):
+            try:
+                os.makedirs(args.output_dir)
+                logging.getLogger().info(f"Created output directory: {args.output_dir}")
+            except OSError as e:
+                logging.getLogger().error(f"Failed to create output directory: {e}")
+                sys.exit(1)
+        elif not os.path.isdir(args.output_dir):
+            logging.getLogger().error(f"Output path is not a directory: {args.output_dir}")
+            sys.exit(1)
+    
     try:
         # Initialize analyzer
         analyzer = DocumentationAnalyzer(github_pat, config_file=args.config)
         
         # Analyze repositories
-        results = analyzer.analyze_multiple_repos(args.repos)
+        logging.getLogger().info(f"Starting analysis of {len(repo_urls)} repositories...")
+        results = analyzer.analyze_multiple_repos(repo_urls)
         
         # Output results
         if args.output == 'json':
             import json
             
+            # Collect all results for stdout
+            all_results = {}
+            saved_files = []
+            
+            for repo_url, analysis in results.items():
+                # Save individual JSON files
+                saved_file = save_analysis_to_json(analysis, args.output_dir, repo_url)
+                saved_files.append(saved_file)
+                
+                # Add to combined results
+                all_results[repo_url] = analysis
+            
+            # Print combined JSON to stdout
             def serialize_analysis(analysis):
                 """Convert analysis to serializable dict."""
                 if hasattr(analysis, 'dict'):
@@ -424,7 +578,6 @@ def main():
                 elif isinstance(analysis, dict):
                     return analysis
                 else:
-                    # Handle Pydantic objects
                     return {k: v for k, v in analysis.__dict__.items() if not k.startswith('_')}
             
             print(json.dumps(
@@ -432,13 +585,26 @@ def main():
                 indent=2,
                 default=str
             ))
-            # for each analysis, save to file, use url
-            for url, analysis in results.items():
-                with open(f"{url.replace('/', '_')}_analysis.json", 'w') as f:
-                    json.dump(serialize_analysis(analysis), f, indent=2)
+            
+            logging.getLogger().info(
+                f"Analysis complete. {len(results)} repositories analyzed. "
+                f"Individual JSON files saved to: {args.output_dir}"
+            )
+            
         else:
+            # Console output with summary
+            successful = sum(1 for a in results.values() if "Analysis failed" not in a.project_summary)
+            failed = len(results) - successful
+            
             for repo_url, analysis in results.items():
                 print(format_analysis_output(analysis))
+            
+            print(f"\n{'='*70}")
+            print(f"📊 ANALYSIS SUMMARY")
+            print(f"{'='*70}")
+            print(f"Total repositories: {len(results)}")
+            print(f"Successful: {successful}")
+            print(f"Failed: {failed}")
     
     except Exception as e:
         logging.getLogger().error(f"Analysis failed: {e}")
