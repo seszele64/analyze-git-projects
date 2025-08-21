@@ -1,14 +1,14 @@
 """Custom GitHub Agent using mcp_use for MCP integration."""
 
 import asyncio
-import os
 import logging
 import time
-from typing import Optional, Any, Dict
+from typing import Optional, Any
 
-from langchain_openai import ChatOpenAI
+from typing import Protocol
 from mcp_use import MCPAgent, MCPClient
 from dotenv import load_dotenv
+from langchain_core.language_models import BaseLanguageModel
 
 # Load environment variables
 load_dotenv()
@@ -32,29 +32,30 @@ class GitHubAgent:
     
     RESPONSIBILITY: Orchestrates MCP client and LLM for repository analysis
     DOES: Load MCP config from JSON, manage async execution, provide sync interface
-    DOES NOT: Complex tool management (handled by mcp_use)
+    DOES NOT: LLM configuration (handled externally), Complex tool management (handled by mcp_use)
     """
 
     def __init__(
         self,
+        llm: BaseLanguageModel,
         system_prompt: Optional[str] = None,
-        model_name: Optional[str] = None,
         config_file: str = "github_mcp.json",
-        max_steps: int = 30,
-        **kwargs: Any
+        max_steps: int = 30
     ):
         """
         Initialize GitHubAgent with mcp_use integration.
         
         Args:
+            llm: Pre-configured language model instance (required)
             system_prompt: Custom system prompt for the agent
-            model_name: Model name to use (supports OpenRouter models)
             config_file: Path to MCP configuration JSON file
             max_steps: Maximum steps for agent execution
-            **kwargs: Additional configuration arguments
         """
         start_time = time.time()
         logger.info("Initializing GitHubAgent with mcp_use...")
+        
+        if llm is None:
+            raise ValueError("llm parameter is required")
         
         self.system_prompt = system_prompt or """
         You are a GitHub repository analysis expert. Your job is to analyze GitHub repositories and provide insights about their structure, technologies and development activity.
@@ -67,29 +68,9 @@ class GitHubAgent:
         self.client = MCPClient.from_config_file(config_file)
         logger.info(f"Loaded MCP client from {config_file}")
         
-        # Configure LLM based on provider
-        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        
-        # Default to OpenRouter if available, fallback to OpenAI
-        if openrouter_api_key and not kwargs.get("force_openai"):
-            self.llm = ChatOpenAI(
-                model=model_name or "google/gemini-2.5-flash-lite",
-                base_url="https://openrouter.ai/api/v1",
-                api_key=openrouter_api_key,
-                temperature=kwargs.get("temperature", 0.7),
-                max_tokens=kwargs.get("max_tokens", 65536)
-            )
-            logger.info(f"Using OpenRouter model: {model_name or 'google/gemini-2.5-flash-lite'}")
-        elif openai_api_key:
-            self.llm = ChatOpenAI(
-                model=model_name or "gpt-4o-mini",
-                api_key=openai_api_key,
-                temperature=kwargs.get("temperature", 0.7)
-            )
-            logger.info(f"Using OpenAI model: {model_name or 'gpt-4o-mini'}")
-        else:
-            raise ValueError("No API key found. Please set OPENROUTER_API_KEY or OPENAI_API_KEY environment variable.")
+        # Use provided LLM instance
+        self.llm = llm
+        logger.info(f"Using provided LLM: {llm.__class__.__name__}")
         
         # Create MCP agent
         self.agent = MCPAgent(
