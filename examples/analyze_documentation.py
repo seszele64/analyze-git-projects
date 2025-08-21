@@ -195,65 +195,47 @@ Provide detailed, factual analysis based on actual repository content.""",
             
             self.logger.info(f"Extracted owner: {owner}, repo: {repo_name}")
             
-            # Create comprehensive analysis prompt
-            analysis_prompt = f"""Analyze the GitHub repository {repo_url} ({owner}/{repo_name}) for resume content extraction.
-
-Please use your GitHub tools to:
-
-1. **Explore Repository Structure**: List all directories and files, focusing on configuration files
-2. **Read Key Files**: Examine README.md, package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, Dockerfile, etc.
-3. **Analyze Source Code**: Identify main programming languages and frameworks used
-4. **Extract Technical Details**: Determine technologies, databases, cloud services, architecture patterns
-
-Based on your analysis, provide a detailed JSON response with the following structure:
-
-{{
-  "repo_url": "{repo_url}",
-  "repo_name": "{repo_name}",
-  "project_title": "Clean project name suitable for resume",
-  "project_category": "Category like Web App, API, Library, Tool, etc.",
-  "project_summary": "One impactful sentence describing what this project does and its value",
-  "primary_language": "Main programming language",
-  "technologies": ["list", "of", "technologies", "and", "frameworks"],
-  "databases": ["list", "of", "databases", "used"],
-  "cloud_services": ["cloud", "platforms", "or", "services"],
-  "technical_skills": ["comprehensive", "list", "of", "technical", "skills", "demonstrated"],
-  "project_scale": "Personal/Team/Enterprise - assess complexity and scope",
-  "user_impact": "Description of who uses this and scale (e.g., '1000+ users')",
-  "code_complexity": "Simple/Moderate/Complex - technical complexity assessment",
-  "key_achievements": ["quantifiable", "achievements", "and", "impacts"],
-  "technical_challenges": ["complex", "technical", "problems", "solved"],
-  "business_value": "What business problem this solves or value it provides",
-  "resume_bullet_points": ["3-5", "concise", "impactful", "bullet", "points", "for", "resume"],
-  "notable_features": ["standout", "technical", "features", "or", "innovations"],
-  "documentation_files": ["README.md", "other", "docs", "found"],
-  "dependencies": ["key", "project", "dependencies"]
-}}
-
-Be specific and factual based on actual file contents. Use action verbs and quantifiable metrics where possible."""
-
-            # Execute analysis using the agent
-            result = self.agent.run_sync(analysis_prompt)
-            
-            # Parse the JSON response
+            # Create JsonOutputParser with DocumentationAnalysis schema
             parser = JsonOutputParser(pydantic_object=DocumentationAnalysis)
+            format_instructions = parser.get_format_instructions()
             
-            # Try to extract JSON from the response
+            # Create PromptTemplate with partial variables
+            template = """You are analyzing the GitHub repository {repo_url} ({owner}/{repo_name}) for resume content extraction.
+
+IMPORTANT: You MUST use the available GitHub tools to access the actual repository content. Do not ask for file contents - use the tools provided.
+
+Use these tools in sequence:
+1. Use `get_file_contents` to read README.md, package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, Dockerfile, etc.
+2. Use `search_code` to find configuration files and identify technologies
+3. Use `search_repositories` to understand project structure
+
+Based on the actual file contents you retrieve, provide a complete JSON response following this schema:
+
+{format_instructions}
+
+CRITICAL: Return ONLY valid JSON matching the exact schema above. Do not include any explanatory text outside the JSON."""
+
+            prompt = PromptTemplate(
+                template=template,
+                input_variables=["repo_url", "owner", "repo_name"],
+                partial_variables={"format_instructions": format_instructions}
+            )
+            
+            # Format the prompt with actual values
+            formatted_prompt = prompt.format(
+                repo_url=repo_url,
+                owner=owner,
+                repo_name=repo_name
+            )
+            
+            # Execute analysis using the agent
+            result = self.agent.run_sync(formatted_prompt)
+            
+            # Parse the response using the JSON parser
             try:
-                # Look for JSON in the response
-                import re
-                json_match = re.search(r'\{.*\}', result, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group()
-                    parsed_result = json.loads(json_str)
-                else:
-                    # If no JSON found, try the whole response
-                    parsed_result = json.loads(result)
+                analysis = parser.parse(result)
                 
-                # Convert to DocumentationAnalysis object
-                analysis = DocumentationAnalysis(**parsed_result)
-                
-            except (json.JSONDecodeError, ValueError) as e:
+            except Exception as e:
                 self.logger.warning(f"Failed to parse JSON response: {e}")
                 self.logger.warning(f"Raw response: {result[:500]}...")
                 
