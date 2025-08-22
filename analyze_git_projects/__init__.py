@@ -7,5 +7,4 @@ A tool for analyzing GitHub repositories using Github MCP server and Pydantic ai
 __version__ = "1.0.0"
 
 from .agent import GitHubAgent
-from .mcp_server_factory import GitHubMCPServerFactory
 from .config import GitHubMCPServerConfig
